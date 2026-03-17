@@ -14,18 +14,19 @@ pip install ecdsa
 步骤4：篡改交易验证签名失败
 
 【参考代码】
-from ecdsa import SigningKey, SECP256k1
 
-sk = SigningKey.generate(curve=SECP256k1)
-vk = sk.verifying_key
-print("Private Key:",sk.to_string().hex())
-print("Public Key:",vk.to_string().hex())
-
-message = b"【你的学号】 pays Bob 5 BTC"
-signature = sk.sign(message)
-
-vk.verify(signature,message)
-print("Signature verified")
+    from ecdsa import SigningKey, SECP256k1
+    
+    sk = SigningKey.generate(curve=SECP256k1)
+    vk = sk.verifying_key
+    print("Private Key:",sk.to_string().hex())
+    print("Public Key:",vk.to_string().hex())
+    
+    message = b"【你的学号】 pays Bob 5 BTC"
+    signature = sk.sign(message)
+    
+    vk.verify(signature,message)
+    print("Signature verified")
 
 【实验任务】
 1. 完成交易签名程序
