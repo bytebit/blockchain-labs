@@ -6,6 +6,7 @@
 3. 理解区块不可篡改性
 
 区块结构
+
         index
         timestamp
         data
@@ -13,6 +14,7 @@
         hash
 
 核心代码
+
         import hashlib, time
         
         class Block:
