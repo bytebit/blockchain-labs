@@ -13,15 +13,16 @@
 步骤3：验证哈希雪崩效应
 
 【参考代码】
-import hashlib
 
-def sha256_hash(data):
-    sha = hashlib.sha256()
-    sha.update(data.encode())
-    return sha.hexdigest()
+    import hashlib
 
-msg = "blockchain security"
-print("Hash:", sha256_hash(msg))
+    def sha256_hash(data):
+        sha = hashlib.sha256()    
+        sha.update(data.encode())    
+        return sha.hexdigest()
+
+    msg = "blockchain security"
+    print("Hash:", sha256_hash(msg))
 
 【实验任务】
 1. 计算字符串（你的学号就是字符串的值）的SHA256哈希值
