@@ -13,13 +13,14 @@ SHA256(block_header + nonce)
 满足指定前导零。
 
 核心代码
-import hashlib
 
-nonce=0
-while True:
-    text="block"+str(nonce)
-    hash=hashlib.sha256(text.encode()).hexdigest()
-    if hash.startswith("0000"):
-        print("found",nonce,hash)
-        break
-    nonce+=1
+        import hashlib
+
+        nonce=0
+        while True:
+            text="block"+str(nonce)
+            hash=hashlib.sha256(text.encode()).hexdigest()
+            if hash.startswith("0000"):
+                print("found",nonce,hash)
+                break
+            nonce+=1
