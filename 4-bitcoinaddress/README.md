@@ -9,11 +9,12 @@
 PublicKey -> SHA256 -> RIPEMD160 -> PubKeyHash -> Base58Check -> Address
 
 核心代码
-import hashlib, base58
 
-sha = hashlib.sha256(pubkey).digest()
-ripemd = hashlib.new('ripemd160')
-ripemd.update(sha)
-pubkey_hash = ripemd.digest()
+    import hashlib, base58
+    
+    sha = hashlib.sha256(pubkey).digest()
+    ripemd = hashlib.new('ripemd160')
+    ripemd.update(sha)
+    pubkey_hash = ripemd.digest()
 
 最后用metamask的私钥和地址进行验证
