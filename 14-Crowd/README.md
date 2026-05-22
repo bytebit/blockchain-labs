@@ -194,3 +194,100 @@ MetaMask 设置：
 浏览器交互：打开 http://localhost:5173，连接 MetaMask 进行投资和提款测试。
 
 按照这个流程，你的实验不仅顺利完成了迁移，还体验到了 Foundry 极速编译和 Solidity 原生测试的强大优势！
+
+
+
+这是为你准备的完整 frontend/app.js 代码。它包含了连接钱包、投资、项目方提款以及投资人退款的所有核心逻辑，并且完美适配你之前的 Crowdfunding.sol 合约。
+
+你可以直接复制以下代码覆盖原有的 frontend/app.js：
+
+import { ethers } from "ethers";
+
+// ⚠️ 注意：请将这里替换为你使用 forge script 部署后得到的真实合约地址
+const contractAddress = "YOUR_DEPLOYED_CONTRACT_ADDRESS";
+
+// 合约的 ABI（包含了合约中所有的函数和事件）
+const abi = [
+  // 只读函数
+  "function owner() view returns (address)",
+  "function goal() view returns (uint)",
+  "function deadline() view returns (uint)",
+  "function totalFunds() view returns (uint)",
+  "function contributions(address) view returns (uint)",
+  
+  // 写入函数
+  "function contribute() payable",
+  "function withdraw()",
+  "function refund()"
+];
+
+let contract;
+let signer;
+
+// 1. 连接钱包并初始化合约
+export async function connectWallet() {
+  if (typeof window.ethereum === "undefined") {
+    alert("请先安装 MetaMask 钱包！");
+    return;
+  }
+
+  try {
+    // 请求用户授权连接钱包
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    
+    // 实例化合约
+    contract = new ethers.Contract(contractAddress, abi, signer);
+    
+    console.log("钱包连接成功，合约已初始化");
+    alert("钱包连接成功！");
+    
+    // 连接成功后，自动刷新页面上的众筹信息
+    updateCrowdInfo();
+  } catch (error) {
+    console.error("连接失败:", error);
+    alert("连接钱包失败，请查看控制台报错");
+  }
+}
+
+// 2. 用户投资 (contribute)
+export async function contribute() {
+  if (!contract) return alert("请先连接钱包！");
+  
+  const amount = document.getElementById("ethAmount").value;
+  if (!amount || amount 
+
+  
+  Foundry 众筹 DApp
+
+  去中心化众筹系统
+  
+  🔗 连接钱包
+  
+
+  众筹状态
+  目标金额：加载中...
+  当前已筹：加载中...
+  截止时间：加载中...
+  我的投资：未连接
+  
+
+  操作区
+  投资金额 (ETH): 
+  
+  💰 投资
+  
+  
+  🏦 项目方提款 (仅Owner)
+  ↩️ 申请退款 (未达标时)
+
+  
+  
+
+💡 几个重要提示：
+
+替换合约地址：记得把 app.js 顶部的 YOUR_DEPLOYED_CONTRACT_ADDRESS 换成你用 forge script 部署后打印出来的真实地址。
+单位转换：Foundry 和 Ethers.js v6 中，前端传入的 ETH 需要用 ethers.parseEther() 转换，合约返回的 Wei 需要用 ethers.formatEther() 转换回可读的 ETH 单位。
+错误提示：代码中加入了 error.reason 的捕获，这样如果 Solidity 里的 require("Ended") 或 require("Not owner") 触发时，前端会直接弹出对应的中文报错原因，非常便于调试。
