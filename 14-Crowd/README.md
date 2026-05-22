@@ -1,111 +1,43 @@
-# 三、实验任务
+将实验项目从 Hardhat 迁移到 Foundry 是一个非常棒的决定。Foundry 基于 Rust 编写，运行速度极快，并且支持全程使用 Solidity 进行开发、测试和部署，是目前 Web3 开发领域的行业标准工具。
 
-学生需要实现一个 **去中心化众筹系统**：
+以下是为你量身定制的 Foundry 版去中心化众筹系统实验指南，完美适配原有的实验任务要求：
 
-## 功能要求
+🛠️ 实验环境准备
 
-### 1️⃣ 创建众筹
+首先，你需要安装 Foundry 工具链（Forge, Cast, Anvil, Chisel）。
+在终端执行官方一键安装脚本：
+curl -L https://foundry.paradigm.xyz | bash
+安装完成后，重启终端或执行：
+source ~/.bashrc
+安装最新版 Foundry
+foundryup
 
-项目方设置：
+验证安装是否成功：forge --version
 
-* 众筹目标金额
-* 截止时间
-* 收款地址
+📂 项目目录结构
 
----
+使用 Foundry 初始化项目后，标准的目录结构如下（比 Hardhat 更简洁）：
+crowdfunding-dapp/
+│
+├── src/                # 存放智能合约源码 (原 contracts/)
+│   └── Crowdfunding.sol
+├── test/               # 存放 Solidity 测试文件
+│   └── Crowdfunding.t.sol
+├── script/             # 存放部署脚本
+│   └── Deploy.s.sol
+├── frontend/           # 前端保持不变 (React/Vite)
+└── foundry.toml        # Foundry 核心配置文件
 
-### 2️⃣ 用户投资
+初始化命令：forge init crowdfunding-dapp
 
-投资人：
+💻 Step 1：编写智能合约 (src/Crowdfunding.sol)
 
-* 发送 ETH
-* 自动记录投资金额
+合约逻辑保持不变，只需将文件移动到 src/ 目录下。
 
----
-
-### 3️⃣ 众筹成功
-
-若：
-
-```
-筹资 ≥ 目标金额
-```
-
-→ 项目方可提款
-
----
-
-### 4️⃣ 众筹失败
-
-若：
-
-```
-截止时间到 + 未达目标
-```
-
-→ 投资人可退款
-
----
-
-# 四、系统架构
-
-```
-Frontend (React)
-        ↓
-Web3.js / Ethers.js
-        ↓
-Crowdfunding.sol
-        ↓
-Ethereum (Local/Ganache)
-```
-
----
-
-# 五、实验环境
-
-| 工具       | 用途     |
-| -------- | ------ |
-| Node.js  | 前端运行   |
-| Hardhat  | 合约开发   |
-| MetaMask | 钱包     |
-| Ganache  | 本地区块链  |
-| React    | DApp界面 |
-
----
-
-# 六、实验步骤
-
----
-
-## Step 1：创建项目
-
-```bash
-mkdir crowdfunding-dapp
-cd crowdfunding-dapp
-
-npm init -y
-npm install --save-dev hardhat
-npx hardhat
-```
-
-选择：
-
-```
-Create JavaScript project
-```
-
----
-
-## Step 2：编写智能合约
-
-### contracts/Crowdfunding.sol
-
-```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 contract Crowdfunding {
-
     address public owner;
     uint public goal;
     uint public deadline;
@@ -120,390 +52,145 @@ contract Crowdfunding {
     }
 
     function contribute() public payable {
-        require(block.timestamp < deadline, "Ended");
-
-        contributions[msg.sender] += msg.value;
-        totalFunds += msg.value;
-    }
-
-    function withdraw() public {
-        require(msg.sender == owner);
-        require(totalFunds >= goal);
+        require(block.timestamp = goal, "Goal not reached");
         payable(owner).transfer(address(this).balance);
     }
 
     function refund() public {
-        require(block.timestamp > deadline);
-        require(totalFunds < goal);
-
-        uint amount = contributions[msg.sender];
+        require(block.timestamp > deadline, "Not ended");
+        require(totalFunds  0, "No contribution");
         contributions[msg.sender] = 0;
-
         payable(msg.sender).transfer(amount);
     }
 }
-```
 
----
+🧪 Step 2：编写 Solidity 测试 (test/Crowdfunding.t.sol)
 
-## Step 3：部署脚本
+Foundry 的核心优势之一是用 Solidity 写测试，速度极快且原生支持模糊测试（Fuzzing）。
 
-`scripts/deploy.js`
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
 
-```javascript
-async function main() {
-  const CF = await ethers.getContractFactory("Crowdfunding");
+import "forge-std/Test.sol";
+import "../src/Crowdfunding.sol";
 
-  const contract = await CF.deploy(
-      ethers.parseEther("5"), // 5 ETH goal
-      3600                     // 1 hour
-  );
+contract CrowdfundingTest is Test {
+    Crowdfunding public crowd;
+    address owner = address(1);
+    address investor = address(2);
 
-  await contract.waitForDeployment();
+    function setUp() public {
+        vm.startPrank(owner);
+        // 目标 1 ETH，持续时间 1 天
+        crowd = new Crowdfunding(1 ether, 1 days);
+        vm.stopPrank();
+    }
 
-  console.log("Deployed:", await contract.getAddress());
+    function testContribute() public {
+        vm.startPrank(investor);
+        crowd.contribute{value: 0.5 ether}();
+        assertEq(crowd.totalFunds(), 0.5 ether);
+        assertEq(crowd.contributions(investor), 0.5 ether);
+        vm.stopPrank();
+    }
+
+    // 模糊测试：随机金额投资
+    function testFuzzContribute(uint256 amount) public {
+        amount = bound(amount, 1, 1 ether); // 限制金额范围
+        vm.startPrank(investor);
+        crowd.contribute{value: amount}();
+        assertEq(crowd.totalFunds(), amount);
+        vm.stopPrank();
+    }
+
+    function testWithdrawSuccess() public {
+        // 模拟投资达标
+        vm.startPrank(investor);
+        crowd.contribute{value: 1.5 ether}();
+        vm.stopPrank();
+
+        // 项目方提款
+        vm.startPrank(owner);
+        uint256 initialBalance = owner.balance;
+        crowd.withdraw();
+        assertEq(owner.balance, initialBalance + 1.5 ether);
+        vm.stopPrank();
+    }
 }
 
-main();
-```
+运行测试命令：forge test -vvv（-vvv 可以查看详细日志）
 
-运行：
+🚀 Step 3：部署脚本与本地节点 (script/Deploy.s.sol)
 
-```bash
-npx hardhat node
-npx hardhat run scripts/deploy.js --network localhost
-```
+Foundry 使用 Anvil 作为本地节点（替代 Ganache），使用 Solidity 脚本进行部署。
 
----
+1. 编写部署脚本：
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
 
-## Step 4：前端连接合约
+import "forge-std/Script.sol";
+import "../src/Crowdfunding.sol";
 
-安装：
+contract DeployScript is Script {
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
 
-```bash
-npm install ethers
-```
+        // 目标 5 ETH，持续 1 小时
+        Crowdfunding crowd = new Crowdfunding(5 ether, 1 hours);
+        
+        console.log("Crowdfunding deployed to:", address(crowd));
 
----
-
-### frontend/app.js
-
-```javascript
-import { ethers } from "ethers";
-
-const contractAddress = "YOUR_ADDRESS";
-const abi = [...];
-
-async function contribute() {
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  const signer = await provider.getSigner();
-
-  const contract = new ethers.Contract(
-      contractAddress,
-      abi,
-      signer
-  );
-
-  await contract.contribute({
-      value: ethers.parseEther("0.1")
-  });
-}
-```
-
----
-
-## Step 5：MetaMask 交互测试
-
-测试：
-
-* 多账户投资
-* 达标提款
-* 未达标退款
-
----
-
-# 七、实验结果要求
-
-学生需提交：
-
-✅ 合约源码
-✅ 部署截图
-✅ 投资交易截图
-✅ 成功或退款演示视频
-✅ 实验报告
-
----
-
-怎么运行前端？
-
----
-
-# ✅ 一、先确认目录结构（标准实验结构）
-
-建议你的项目长这样：
-
-```
-crowdfunding-dapp/
-│
-├── contracts/
-├── scripts/
-├── hardhat.config.js
-│
-└── frontend/
-    ├── index.html
-    ├── app.js
-    └── package.json
-```
-
----
-
-# ✅ 二、创建前端环境（只做一次）
-
-进入 frontend：
-
-```bash
-cd frontend
-```
-
-初始化：
-
-```bash
-npm init -y
-```
-
-安装依赖：
-
-```bash
-npm install ethers
-npm install --save-dev vite
-```
-
-为什么用 **Vite**？
-
-👉 比 webpack 简单
-👉 学生几乎零配置
-👉 Web3 官方推荐
-
----
-
-# ✅ 三、修改 package.json
-
-在 `frontend/package.json` 里加入：
-
-```json
-{
-  "scripts": {
-    "dev": "vite"
-  }
-}
-```
-
----
-
-# ✅ 四、创建 index.html（必须）
-
-前端入口不是 JS，而是 HTML。
-
-## frontend/index.html
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Crowdfunding DApp</title>
-</head>
-
-<body>
-
-<h2>Crowdfunding</h2>
-
-<button onclick="connect()">连接钱包</button>
-<button onclick="contribute()">投资 0.1 ETH</button>
-
-<script type="module" src="/app.js"></script>
-
-</body>
-</html>
-```
-
-⚠️ 注意：
-
-```
-type="module"
-```
-
-必须有，否则 import 不工作。
-
----
-
-# ✅ 五、修改 app.js（关键）
-
-## frontend/app.js
-
-```javascript
-import { ethers } from "ethers";
-
-let contract;
-
-const contractAddress = "你的部署地址";
-
-const abi = [
-  "function contribute() payable"
-];
-
-export async function connect() {
-
-  await window.ethereum.request({
-    method: "eth_requestAccounts"
-  });
-
-  const provider =
-      new ethers.BrowserProvider(window.ethereum);
-
-  const signer = await provider.getSigner();
-
-  contract = new ethers.Contract(
-      contractAddress,
-      abi,
-      signer
-  );
-
-  console.log("Wallet connected");
+        vm.stopBroadcast();
+    }
 }
 
-export async function contribute() {
+2. 启动本地链并部署：
+打开两个终端窗口：
+终端 1 (启动 Anvil 本地链)：
+        anvil
+    
+   Anvil 会输出 10 个测试账户和私钥，以及 RPC 地址 http://127.0.0.1:8545。
 
-  await contract.contribute({
-      value: ethers.parseEther("0.1")
-  });
+终端 2 (执行部署)：
+        # 导出 Anvil 输出的第一个账户私钥
+    export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+    # 执行部署脚本
+    forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
+    
+   部署成功后，终端会打印出合约地址，请复制保存。
 
-  alert("Investment sent!");
-}
+🌐 Step 4：前端连接 (frontend/)
 
-window.connect = connect;
-window.contribute = contribute;
-```
+前端逻辑基本不变，但需要更新合约地址。
 
----
+MetaMask 设置：
+    网络名称：Anvil
+    RPC URL：http://127.0.0.1:8545
+    Chain ID：31337
+    导入 Anvil 输出的测试账户私钥。
 
-# ✅ 六、启动前端（真正运行）
+修改 frontend/app.js：
+    将 contractAddress 替换为你在上一步 forge script 部署后得到的地址。
+   (JS 代码部分保持你原有的 ethers.js 写法即可，无需改动)
 
-在 frontend 目录执行：
+⚡ 完整运行顺序总结
 
-```bash
-npm run dev
-```
+编译与测试：
+        forge build
+    forge test
+    
+启动本地链：
+        anvil
+    
+部署合约 (新终端)：
+        export PRIVATE_KEY=
+    forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
+    
+启动前端：
+        cd frontend
+    npm run dev
+    
+浏览器交互：打开 http://localhost:5173，连接 MetaMask 进行投资和提款测试。
 
-你会看到：
-
-```
-VITE v5.x ready in xxx ms
-
-➜ Local: http://localhost:5173/
-```
-
-打开浏览器：
-
-```
-http://localhost:5173
-```
-
----
-
-# ✅ 七、MetaMask 设置（很多人忘）
-
-确保：
-
-### 1️⃣ Hardhat 本地链运行中
-
-```bash
-npx hardhat node
-```
-
----
-
-### 2️⃣ MetaMask 添加网络
-
-```
-Network Name: Hardhat
-RPC URL: http://127.0.0.1:8545
-Chain ID: 31337
-Currency: ETH
-```
-
----
-
-### 3️⃣ 导入测试账户
-
-复制 hardhat node 输出的 private key：
-
-```
-Account #0: 0xf39f...
-Private Key: 0xac0974...
-```
-
-导入 MetaMask。
-
----
-
-# ✅ 八、完整运行顺序（课堂标准流程）
-
-按顺序：
-
-```
-① npx hardhat node
-② npx hardhat run deploy.js --network localhost
-③ cd frontend
-④ npm run dev
-⑤ 打开浏览器
-⑥ 连接 MetaMask
-⑦ 点击投资
-```
-
----
-
-# 🚨 常见错误（90%学生会遇到）
-
-## ❌ Cannot use import outside module
-
-👉 index.html 没写：
-
-```html
-type="module"
-```
-
----
-
-## ❌ window.ethereum undefined
-
-👉 没安装 MetaMask
-
----
-
-## ❌ transaction reverted
-
-👉 合约地址写错
-
----
-
-## ❌ insufficient funds
-
-👉 MetaMask 账户不是 hardhat 测试账户
-
----
-
-# 🎓 教学建议（非常重要）
-
-课堂上建议让学生运行：
-
-```
-Hardhat node + Vite
-```
-
-不要用：
-
-* ❌ 直接打开 html
-* ❌ Live Server
-* ❌ file:// 路径
-
-否则 Web3 注入会失败。
+按照这个流程，你的实验不仅顺利完成了迁移，还体验到了 Foundry 极速编译和 Solidity 原生测试的强大优势！
